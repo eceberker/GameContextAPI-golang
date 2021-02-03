@@ -10,6 +10,7 @@ func ConnectDb() *sql.DB {
 
 	// Open the connection
 	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost/GameContextDb?sslmode=disable")
+
 	if err != nil {
 		panic(err)
 	}
@@ -20,7 +21,7 @@ func ConnectDb() *sql.DB {
 		panic(err)
 	}
 
-	fmt.Println("Successfully connected!")
+	fmt.Println("Successfully connected to Db!")
 	// return the connection
 	return db
 }
