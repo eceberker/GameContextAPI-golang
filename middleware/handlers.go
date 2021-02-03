@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/eceberker/gamecontextdb/helpers"
 	"github.com/eceberker/gamecontextdb/models"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
@@ -47,6 +48,7 @@ func createConnection() *sql.DB {
 	fmt.Println("Successfully connected!")
 	// return the connection
 	return db
+
 }
 
 // response format
@@ -110,17 +112,16 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	//str to int for id
-	id, err := strconv.Atoi(params["id"])
+	id, err := helpers.StringToInt64(params["id"])
 	if err != nil {
 		log.Fatalf("Unable to convert the string into int.  %v", err)
 	}
 
 	//get user from cache with id
-	user, err := getUserCache(int64(id))
+	user, err := getUserCache(id)
 	if err != nil {
-		log.Fatalf("Unable to get user", err)
+		fmt.Printf("Unable to get user. %v", err)
 	}
-
 	json.NewEncoder(w).Encode(user)
 }
 
@@ -139,8 +140,6 @@ func UpdateScore(w http.ResponseWriter, r *http.Request) {
 	// decode the json request to user
 	err := json.NewDecoder(r.Body).Decode(&user)
 
-	fmt.Println(user.ID)
-	fmt.Println(user.Points)
 	if err != nil {
 		log.Fatalf("Unable to decode the request body.  %v", err)
 	}
@@ -189,7 +188,6 @@ func InsertUser(user models.User) int64 {
 
 	// create redis connection
 	redis := redisConnection()
-
 	// create the postgres db connection
 	db := createConnection()
 
@@ -211,7 +209,7 @@ func InsertUser(user models.User) int64 {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
 
-	redis.HSet(ctx, strconv.Itoa(int(id)), []string{"display_name", user.Name, "country", user.Country, "points", strconv.Itoa(int(user.Points))})
+	redis.HSet(ctx, helpers.Int64ToString(id), []string{"display_name", user.Name, "country", user.Country, "points", helpers.Int64ToString(user.Points)})
 
 	fmt.Printf("Inserted a single record %v", id)
 
@@ -221,18 +219,45 @@ func InsertUser(user models.User) int64 {
 
 func getUserCache(id int64) (models.User, error) {
 	// create redis connection
-	redis := redisConnection()
+	rdb := redisConnection()
 
-	if err := redis.HGet(ctx, strconv.Itoa(int(id)), "display_name").Err(); err != nil {
-		fmt.Printf("Unable to store example struct into redis due to: %s \n", err)
-	}
-
+	// Return model
 	var user models.User
-	cachedUser, _ := redis.HGet(ctx, strconv.Itoa(int(id)), "display_name").Result()
 
-	if err := user.UnmarshalBinary([]byte(cachedUser)); err != nil {
-		fmt.Printf("Unable to unmarshal data into the new user struct due to: %s \n", err)
+	// UserId to string
+	userID := helpers.Int64ToString(id)
+
+	// Check Redis to key exists or not
+	_, err := rdb.Get(ctx, userID).Result()
+	if err == redis.Nil {
+		user, err = getUser(id)
+		if err != nil {
+			fmt.Printf("Unable to retrieve user from db %v", err)
+		}
+		rdb.HSet(ctx, userID, []string{"display_name", user.Name, "country", user.Country, "points", strconv.Itoa(int(user.Points))})
 	}
+
+	cachedUserName, err := rdb.HGet(ctx, userID, "display_name").Result()
+	if err != nil {
+		fmt.Printf("Unable to retrieve user struct into redis due to: %s \n", err)
+	}
+	cachedUserCountry, err := rdb.HGet(ctx, userID, "country").Result()
+	if err != nil {
+		fmt.Printf("Unable to retrieve user struct into redis due to: %s \n", err)
+	}
+	cachedUserPoints, err := rdb.HGet(ctx, userID, "points").Result()
+	if err != nil {
+		fmt.Printf("Unable to retrieve user struct into redis due to: %s \n", err)
+	}
+	points, err := helpers.StringToInt64(cachedUserPoints)
+	if err != nil {
+		fmt.Printf("Unable to convert string to int")
+	}
+
+	user.ID = id
+	user.Name = cachedUserName
+	user.Country = cachedUserCountry
+	user.Points = points
 
 	return user, nil
 }
