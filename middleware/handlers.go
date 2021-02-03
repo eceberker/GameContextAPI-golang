@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/eceberker/gamecontextdb/cache"
+	db "github.com/eceberker/gamecontextdb/db"
 	"github.com/eceberker/gamecontextdb/helpers"
 	"github.com/eceberker/gamecontextdb/models"
 	"github.com/go-redis/redis/v8"
@@ -17,39 +19,6 @@ import (
 )
 
 var ctx = context.Background()
-
-func redisConnection() *redis.Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
-
-	if _, err := rdb.Ping(ctx).Result(); err != nil {
-		log.Fatalf("Could not ping redis server due to err: %s \n", err)
-	}
-
-	return rdb
-}
-func createConnection() *sql.DB {
-
-	// Open the connection
-	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost/GameContextDb?sslmode=disable")
-	if err != nil {
-		panic(err)
-	}
-	// check the connection
-	err = db.Ping()
-
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Successfully connected!")
-	// return the connection
-	return db
-
-}
 
 // response format
 type response struct {
@@ -159,7 +128,7 @@ func UpdateScore(w http.ResponseWriter, r *http.Request) {
 }
 func SubmitNewScore(scoreWorth int64, id int64) int64 {
 	// create the postgres db connection
-	db := createConnection()
+	db := db.ConnectDb()
 
 	// close the db connection
 	defer db.Close()
@@ -187,9 +156,10 @@ func SubmitNewScore(scoreWorth int64, id int64) int64 {
 func InsertUser(user models.User) int64 {
 
 	// create redis connection
-	redis := redisConnection()
+	rdb := cache.RedisConnection()
+
 	// create the postgres db connection
-	db := createConnection()
+	db := db.ConnectDb()
 
 	// close the db connection
 	defer db.Close()
@@ -209,7 +179,7 @@ func InsertUser(user models.User) int64 {
 		log.Fatalf("Unable to execute the query. %v", err)
 	}
 
-	redis.HSet(ctx, helpers.Int64ToString(id), []string{"display_name", user.Name, "country", user.Country, "points", helpers.Int64ToString(user.Points)})
+	rdb.HSet(ctx, helpers.Int64ToString(id), []string{"display_name", user.Name, "country", user.Country, "points", helpers.Int64ToString(user.Points)})
 
 	fmt.Printf("Inserted a single record %v", id)
 
@@ -219,7 +189,7 @@ func InsertUser(user models.User) int64 {
 
 func getUserCache(id int64) (models.User, error) {
 	// create redis connection
-	rdb := redisConnection()
+	rdb := cache.RedisConnection()
 
 	// Return model
 	var user models.User
@@ -264,7 +234,7 @@ func getUserCache(id int64) (models.User, error) {
 
 func getUser(id int64) (models.User, error) {
 
-	db := createConnection()
+	db := db.ConnectDb()
 
 	defer db.Close()
 
@@ -288,7 +258,7 @@ func getUser(id int64) (models.User, error) {
 
 func getAllUsers() ([]models.User, error) {
 	// create the postgres db connection
-	db := createConnection()
+	db := db.ConnectDb()
 
 	// close the db connection
 	defer db.Close()
