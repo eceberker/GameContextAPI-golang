@@ -54,9 +54,4 @@ func RedisConnection() *redis.Client {
 	fmt.Println("Successfully connected to Redis!")
 	return rdb
 
-	// if _, err := rdb.Ping(Ctx).Result(); err != nil {
-	// 	log.Fatalf("Could not ping redis server due to err: %s \n", err)
-	// }
-
-	// return rdb
 }

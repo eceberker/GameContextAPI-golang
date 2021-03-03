@@ -1,9 +1,3 @@
-# FROM golang:alpine as builder
-# COPY go.mod go.sum /go/src/github.com/eceberker/gamecontextdb/
-# WORKDIR /go/src/github.com/eceberker/gamecontextdb
-# RUN go mod download
-# COPY . /go/src/github.com/eceberker/gamecontextdb
-# RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o build/gamecontextdb github.com/eceberker/gamecontextdb
 # Start from golang base image
 FROM golang:alpine as builder
 # Install git.
@@ -20,7 +14,6 @@ COPY . .
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
-
 # Start a new stage from scratch
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
@@ -32,9 +25,3 @@ COPY --from=builder /app/.env .
 EXPOSE 8080
 #Command to run the executable
 CMD ["./main"]
-
-# FROM alpine
-# RUN apk add --no-cache ca-certificates && update-ca-certificates
-# COPY --from=builder /go/src/github.com/eceberker/gamecontextdb/build/gamecontextdb /usr/bin/gamecontextdb
-# EXPOSE 8080 8080
-# ENTRYPOINT ["/usr/bin/gamecontextdb"]
