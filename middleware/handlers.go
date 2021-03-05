@@ -62,12 +62,17 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Unable to convert the string into int.  %v", err)
 	}
 
-	//get user from cache with id
+	//get user with id
 	user, err := services.GetUserCache(id)
 	if err != nil {
 		fmt.Printf("Unable to get user. %v", err)
+		return
+	} else if user.ID == 0 {
+		http.NotFound(w, r)
+		return
 	}
 	json.NewEncoder(w).Encode(user)
+	return
 }
 
 // UpdateScore will return userId and updated score
@@ -79,7 +84,7 @@ func UpdateScore(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Methods", "POST")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// // create an empty scoreModel
+	//create an empty scoreModel
 	var scoreModel models.ScoreSubmit
 
 	// decode the json request to scoreModel
