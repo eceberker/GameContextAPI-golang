@@ -26,6 +26,8 @@ func GetUserFromDb(id int64) models.User {
 	switch err {
 	case sql.ErrNoRows:
 		fmt.Println(("No rows to return"))
+		user.ID = 0
+		return user
 	case nil:
 		return user
 	default:

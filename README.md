@@ -1,1 +1,1 @@
-# GameContextApi-go
+# GameContextAPI-golang
